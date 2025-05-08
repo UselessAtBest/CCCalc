@@ -175,7 +175,7 @@
         }
       });
 
-      const total = (base + addSum) * (1 + multSum);
+      const total = base * (1 + multSum) + addSum;
       outputEl.value = total.toFixed(2);
     }
 
