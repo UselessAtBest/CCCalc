@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CC Calc v0.3</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #121212;
+      color: #e0e0e0;
+      display: flex;
+      height: 100vh;
+      gap: 1rem;
+      padding: 1rem;
+    }
+    .sidebar, .main {
+      background-color: #1e1e2f;
+      border-radius: 1rem;
+      padding: 1rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+    .sidebar {
+      width: 275px;
+      flex-shrink: 0;
+    }
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .mode-buttons {
+      margin-bottom: 1rem;
+    }
+    .mode-buttons button {
+      margin-right: 10px;
+      background-color: #2c2c3f;
+      color: #b48dfd;
+      border: none;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      border-radius: 0.5rem;
+      transition: background-color 0.3s ease;
+    }
+    .mode-buttons button:hover {
+      background-color: #3d2c5e;
+    }
+    .mode-buttons button.active {
+      background-color: #5e3ea1;
+    }
+    .modifier-list, .global-modifier-list {
+      margin-top: 1rem;
+    }
+    .modifier {
+      background-color: #2a2a3f;
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .output {
+      font-size: 1.5rem;
+      background-color: #1e1e2f;
+      padding: 0.75rem 1rem;
+      border: 1px solid #5e3ea1;
+      border-radius: 0.75rem;
+      margin-bottom: 1rem;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+    input[type="number"] {
+      background-color: #1e1e2f;
+      color: #e0e0e0;
+      border: 1px solid #5e3ea1;
+      padding: 5px;
+      width: 7ch;
+      border-radius: 0.4rem;
+    }
+    
+    label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+
+
+
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <div>
+      <label for="global-input">Warframe Ability Strength:</label>
+      <input type="number" id="global-input" value="100" oninput="calculate()" />
+    </div>
+    <div class="global-modifier-list" id="global-modifiers"></div>
+  </div>
+  <div class="main">
+    <div class="output" id="output">Final Critical Chance: </div>
+    <div class="mode-buttons">
+      <button onclick="switchMode(0)" class="active">Rifles</button>
+      <button onclick="switchMode(1)">Shotguns</button>
+      <button onclick="switchMode(2)">Secondaries</button>
+    </div>
+    <div>
+      <label>Base CC:
+        <input type="number" id="base-cc" value="0" oninput="calculate()" />
+      </label>
+    </div>
+    <div class="modifier-list" id="modifiers"></div>
+  </div>
+
+  <script>
+    const modifierTemplates = [
+      
+    // Rifle Mods / Buffs
+    
+    [
+        { name: "Argon Scope", type: "multiply", value: 1.35 },
+        { name: "Critical Delay", type: "multiply", value: 2.0 },
+        { name: "Deadly Sequence", type: "multiply", value: 2.0 },
+        { name: "Exposing Harpoon", type: "multiply", value: 3.0 },
+        { name: "Galvanized Scope", type: "multiply", value: 3.2 },
+        { name: "Point Strike", type: "multiply", value: 1.5 },
+        { name: "Primary Acuity", type: "multiply", value: 3.5 },
+        { name: "Proton Jet'", type: "multiply", value: 1.2 },
+
+        { name: "Teeming Virulence", type: "true", value: 1.2 , globalTag: true},
+        { name: "Critical Precision", type: "multiply", value: 0.1 , hasInput: true, max: 50},
+
+
+      ],
+    
+      // Shotgun Mods / Buffs
+      [
+        { name: "Blunderbuss", type: "multiply", value: 0.9 },
+        { name: "Critical Deceleration", type: "multiply", value: 2 },
+        { name: "Laser Sight", type: "multiply", value: 1.2 },
+        { name: "Motus Setup", type: "multiply", value: 1.0 },
+
+        { name: "Teeming Virulence", type: "true", value: 1.2 , globalTag: true},
+      ],
+
+   // Secondary Mods / Buffs
+      [
+        { name: "Creeping Bullseye", type: "multiply", value: 2.0 },
+        { name: "Deadly Maneuvers", type: "multiply", value: 4.0 },
+        { name: "Galvanized Crosshairs", type: "multiply", value: 3.2 },
+        { name: "Hydraulic Crosshairs", type: "multiply", value: 1.35 },
+        { name: "Pistol Acuity", type: "multiply", value: 3.5 },
+        { name: "Pistol Gambit", type: "multiply", value: 1.2 },
+        { name: "Primed Pistol Gambit", type: "multiply", value: 1.87 },
+        // Arcanes
+        { name: "Cascadia Accuracy", type: "multiply", value: 3 },
+        { name: "Cascadia Overcharge", type: "multiply", value: 3 },
+        // Passive
+        { name: "Yareli's Passive", type: "multiply", value: 2 },
+      ]
+    ];
+    // Global Modifiers
+    const globalModifiers = [
+
+        // Abilities
+      { name: "Cathode Grace", type: "multiply", value: 0.005, globalTag: true },
+      { name: "Biting Frost", type: "multiply", value: 2.0},
+      { name: "Shadow Haze", type: "multiply", value: 0.005 , globalTag: true},
+      { name: "Covenant Bodyshot", type: "add", value: 50 },
+      { name: "Covenant Headshot", type: "add", value: 200 },
+
+      // Mods
+      { name: "Cat's Eye", type: "add", value: 60 },
+
+        // Augments
+      { name: "Concentrated Arrow", type: "add", value: 50 },
+      { name: "Smoke Shadow", type: "multiply", value: 1.5 },
+      { name: "Ballistic Bullseye", type: "add", value: 50 },
+
+      // Arcanes
+      { name: "Arcane Hotshot", type: "multiply", value: 0.06 , hasInput: true, max: 50},
+      { name: "Arcane Avenger", type: "add", value: 45 },
+
+        // Passives
+      { name: "Worthy Comradery", type: "multiply", value: 0.75 },
+      { name: "Nyx Passive", type: "multiply", value: 0.4 , hasInput: true, max: 5},
+      { name: "Puncture Stacks", type: "add", value: 5, hasInput: true, max: 5 },
+      
+      
+
+    ];
+
+    let currentMode = 0;
+
+    function renderModifiers() {
+      const container = document.getElementById('modifiers');
+      container.innerHTML = '';
+      const mods = modifierTemplates[currentMode];
+      mods.forEach((mod, index) => {
+        const row = document.createElement('div');
+        row.className = 'modifier';
+        const id = `mod-${currentMode}-${index}`;
+        row.innerHTML = `
+          <label>
+            <input type="checkbox" id="${id}" onchange="calculate()"> ${mod.name}
+            ${mod.hasInput ? `<input type='number' id='${id}-input' value='0' max='${mod.max}' min='0' onchange='calculate()' />` : ''}
+          </label>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    function renderGlobalModifiers() {
+  const container = document.getElementById('global-modifiers');
+  container.innerHTML = '';
+  globalModifiers.forEach((mod, index) => {
+    const id = `global-mod-${index}`;
+    container.innerHTML += `
+      <div class="modifier">
+        <label>
+          <input type="checkbox" id="${id}" onchange="calculate()"> ${mod.name}
+          ${mod.hasInput ? `<input type='number' id='${id}-input' value='0' max='${mod.max}' min='0' onchange='calculate()' />` : ''}
+        </label>
+      </div>
+    `;
+  });
+}
+
+    function switchMode(mode) {
+      currentMode = mode;
+      document.querySelectorAll('.mode-buttons button').forEach((btn, idx) => {
+        btn.classList.toggle('active', idx === mode);
+      });
+      renderModifiers();
+      calculate();
+    }
+
+    function calculate() {
+      const base = parseFloat(document.getElementById('base-cc').value) || 0;
+      const globalInput = parseFloat(document.getElementById('global-input').value) || 0;
+      let totalMult = 0;
+      let totalAdd = 0;
+
+      const mods = modifierTemplates[currentMode];
+      mods.forEach((mod, index) => {
+        const checkbox = document.getElementById(`mod-${currentMode}-${index}`);
+        if (checkbox && checkbox.checked) {
+          let val = mod.value;
+          if (mod.hasInput) {
+  const inputVal = parseFloat(document.getElementById(`mod-${currentMode}-${index}-input`).value) || 0;
+  val = Math.min(inputVal, mod.max);
+}
+if (mod.globalTag) {
+  val *= globalInput;
+}
+if (mod.type === 'multiply') totalMult += val;
+else totalAdd += val;
+        }
+      });
+
+      globalModifiers.forEach((mod, index) => {
+  const checkbox = document.getElementById(`global-mod-${index}`);
+  if (checkbox && checkbox.checked) {
+    let val = mod.value;
+    if (mod.hasInput) {
+  const inputVal = parseFloat(document.getElementById(`global-mod-${index}-input`).value) || 0;
+  val = Math.min(inputVal, mod.max) * mod.value;
+}
+
+    if (mod.globalTag) val *= globalInput;
+    if (mod.type === 'multiply') totalMult += val;
+    else totalAdd += val;
+  }
+});
+
+      const result = base + (base * totalMult) + totalAdd;
+      document.getElementById('output').textContent = `Result: ${result.toFixed(2)}%`;const formattedResult = Number.isInteger(result) ? result.toFixed(0) : result.toFixed(2);
+      document.getElementById('output').textContent = `Result: ${formattedResult}%`;
+
+    }
+
+    renderModifiers();
+    renderGlobalModifiers();
+  </script>
+</body>
+</html>
