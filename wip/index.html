@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Scuff af CC calc</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: sans-serif;
+      background-color: #121212;
+      color: #ffffff;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .main-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 40px;
+      padding: 20px;
+    }
+
+    h1 {
+      color: #ffffff;
+    }
+
+    .flex-container {
+      display: flex;
+      gap: 40px;
+    }
+
+    .section, .global-section {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 20px;
+      background-color: #1e1e1e;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.05);
+      min-width: 300px;
+    }
+
+    .input-wrapper, .output-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    input[type="number"], .output {
+      padding: 5px;
+      background-color: #333;
+      color: #fff;
+      border: 1px solid #555;
+      border-radius: 5px;
+      width: 80px;
+    }
+
+    .output {
+      text-align: right;
+    }
+
+    .checkbox-group label {
+      display: block;
+      margin-bottom: 5px;
+      cursor: pointer;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="main-container">
+    <h1>Custom Modifiers Per Section</h1>
+    <div class="flex-container">
+      <div id="container"></div>
+      <div id="global-container" class="global-section">
+        <h2>Global Modifiers</h2>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const allModifiers = [
+    [
+        { value: 1.5, type: 'multiply', label: 'Point Strike' },
+        { value: 3.5, type: 'multiply', label: 'Primary Acuity' },
+        { value: 2.0, type: 'multiply', label: 'Critical Delay' },
+        { value: 1.35, type: 'multiply', label: 'Argon Scope' },
+        { value: 3.2, type: 'multiply', label: 'Galvanized Scope' },
+        { value: 1.2, type: 'multiply', label: 'Proton Jet' },
+        { value: 2.0, type: 'multiply', label: 'Deadly Sequence' },
+        { value: 3.0, type: 'multiply', label: 'Exposing Harpoon' },
+      ],
+      
+      [
+      { value: 0.9, type: 'multiply', label: 'Blunderbuss' },
+        { value: 2, type: 'multiply', label: 'Critical Deceleration' },
+        { value: -3, type: 'multiply', label: 'Laser Sight' },
+        { value: -3, type: 'multiply', label: 'Motus Setup' }
+      ],
+      [
+        { value: 3.5, type: 'multiply', label: 'Pistol Acuity' },
+        { value: 1.2, type: 'multiply', label: 'Pistol Gambit' },
+        { value: 1.87, type: 'multiply', label: 'Primed Pistol Gambit' },
+        { value: 2.0, type: 'multiply', label: 'Creeping Bullseye' },
+        { value: 1.35, type: 'multiply', label: 'Hydraulic Crosshairs' },
+        { value: 3.2, type: 'multiply', label: 'Galvanized Crosshairs' },
+        { value: 4.0, type: 'multiply', label: 'Deadly Maneuvers' },
+      ]
+    ];
+
+    const globalModifiers = [
+        { value: 0.5, type: 'multiply', label: 'Cathode Grace' },
+        { value: 2.0, type: 'multiply', label: 'Biting Frost' },
+        { value: 0.5, type: 'multiply', label: 'Concentrated Arrow' },
+        { value: 1.5, type: 'multiply', label: 'Smoke Shadow' },
+        { value: 1.2, type: 'multiply', label: 'Teeming Virulence' },
+        { value: 0.75, type: 'multiply', label: 'Worthy Comradery' },
+        { value: 3.0, type: 'multiply', label: 'Cyte-09 Passive' },
+        { value: 0.4, type: 'multiply', label: 'Nyx Passive' },
+        { value: 2.0, type: 'multiply', label: 'Nyx Passive [Max]' },
+        { value: 3.0, type: 'multiply', label: 'Arcane Hotshot' },
+        { value: 3.0, type: 'multiply', label: 'Cascadia Accuracy' },
+        { value: 3.0, type: 'multiply', label: 'Cascadia Overcharge' },
+
+        { value: 60, type: 'add', label: 'Cats Eye' },
+        { value: 50, type: 'add', label: 'Ballistic Bullseye' },
+        { value: 50, type: 'add', label: 'Shadow Haze' },
+        { value: 45, type: 'add', label: 'Arcane Avenger' },
+        { value: 50, type: 'add', label: 'Covenant Bodyshot' },
+        { value: 200, type: 'add', label: 'Covenant Headshot' },
+        { value: 5, type: 'add', label: 'Puncture' },
+        { value: 25, type: 'add', label: 'Puncture [Max Stacks]' },
+
+    ];
+
+    const sectionLabels = [
+      'Rifle Mods',
+      'Shotgun Mods',
+      'Secondary Mods'
+    ];
+
+    function calculateOutput(inputId, outputId, localModifiers, globalModifiers) {
+      const inputEl = document.getElementById(inputId);
+      const outputEl = document.getElementById(outputId);
+      const base = parseFloat(inputEl.value) || 0;
+
+      let addSum = 0;
+      let multSum = 0;
+
+      // Local modifiers
+      localModifiers.forEach((mod, i) => {
+        const checkbox = document.getElementById(`${inputId}-mod-${i}`);
+        if (checkbox && checkbox.checked) {
+          if (mod.type === 'add') addSum += mod.value;
+          else if (mod.type === 'multiply') multSum += mod.value;
+        }
+      });
+
+      // Global modifiers
+      globalModifiers.forEach((mod, i) => {
+        const checkbox = document.getElementById(`global-mod-${i}`);
+        if (checkbox && checkbox.checked) {
+          if (mod.type === 'add') addSum += mod.value;
+          else if (mod.type === 'multiply') multSum += mod.value;
+        }
+      });
+
+      const total = base * (1 + multSum) + addSum;
+      outputEl.value = total.toFixed(2);
+    }
+
+    function createSection(index, modifiers) {
+      const section = document.createElement('div');
+      section.className = 'section';
+
+      const inputWrapper = document.createElement('div');
+      inputWrapper.className = 'input-wrapper';
+
+      const inputLabel = document.createElement('span');
+      inputLabel.textContent = sectionLabels[index] || `Section ${index + 1}`;
+
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.value = 0;
+      input.id = `number-${index}`;
+
+      input.addEventListener('input', () =>
+        calculateOutput(`number-${index}`, `output-${index}`, modifiers, globalModifiers)
+      );
+
+      inputWrapper.appendChild(inputLabel);
+      inputWrapper.appendChild(input);
+
+      const outputWrapper = document.createElement('div');
+      outputWrapper.className = 'output-wrapper';
+
+      const outputLabel = document.createElement('span');
+      outputLabel.textContent = 'Output:';
+
+      const output = document.createElement('input');
+      output.type = 'text';
+      output.className = 'output';
+      output.id = `output-${index}`;
+      output.disabled = true;
+      output.value = '0.00';
+
+      outputWrapper.appendChild(outputLabel);
+      outputWrapper.appendChild(output);
+
+      const checkboxGroup = document.createElement('div');
+      checkboxGroup.className = 'checkbox-group';
+
+      modifiers.forEach((mod, i) => {
+        const label = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `number-${index}-mod-${i}`;
+        checkbox.addEventListener('change', () =>
+          calculateOutput(`number-${index}`, `output-${index}`, modifiers, globalModifiers)
+        );
+        label.appendChild(checkbox);
+        label.append(` ${mod.label}`);
+        checkboxGroup.appendChild(label);
+      });
+
+      section.appendChild(inputWrapper);
+      section.appendChild(outputWrapper);
+      section.appendChild(checkboxGroup);
+      return section;
+    }
+
+    function createGlobalModifiers(modifiers) {
+      const globalSection = document.getElementById('global-container');
+      const checkboxGroup = document.createElement('div');
+      checkboxGroup.className = 'checkbox-group';
+
+      modifiers.forEach((mod, i) => {
+        const label = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `global-mod-${i}`;
+        checkbox.addEventListener('change', () => {
+          // Trigger all outputs to recalculate
+          for (let j = 0; j < allModifiers.length; j++) {
+            calculateOutput(`number-${j}`, `output-${j}`, allModifiers[j], globalModifiers);
+          }
+        });
+        label.appendChild(checkbox);
+        label.append(` ${mod.label}`);
+        checkboxGroup.appendChild(label);
+      });
+
+      globalSection.appendChild(checkboxGroup);
+    }
+
+    const container = document.getElementById('container');
+    allModifiers.forEach((modifierList, i) => {
+      container.appendChild(createSection(i, modifierList));
+    });
+
+    createGlobalModifiers(globalModifiers);
+  </script>
+</body>
+</html>
