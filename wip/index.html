@@ -67,23 +67,36 @@
     }
 
     .checkbox-group label {
-      display: block;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       margin-bottom: 5px;
       cursor: pointer;
+      width: 100%;
     }
 
     .checkbox-group input[type="checkbox"] {
       margin-right: 5px;
     }
+
+    .checkbox-group span {
+      flex-grow: 1;
+      text-align: left;
+    }
+
+    .checkbox-group input[type="number"] {
+      margin-left: 10px;
+      width: 60px;
+    }
   </style>
 </head>
 <body>
   <div class="main-container">
-    <h1>Custom Modifiers Per Section</h1>
+    <h1>Crit Chance Calc v0.2</h1>
     <div class="flex-container">
       <div id="container"></div>
       <div id="global-container" class="global-section">
-        <h2>Global Modifiers</h2>
+        <h2>Global CC Modifiers</h2>
       </div>
     </div>
   </div>
@@ -91,14 +104,15 @@
   <script>
     const allModifiers = [
     [
-        { value: 1.5, type: 'multiply', label: 'Point Strike' },
-        { value: 3.5, type: 'multiply', label: 'Primary Acuity' },
-        { value: 2.0, type: 'multiply', label: 'Critical Delay' },
         { value: 1.35, type: 'multiply', label: 'Argon Scope' },
-        { value: 3.2, type: 'multiply', label: 'Galvanized Scope' },
-        { value: 1.2, type: 'multiply', label: 'Proton Jet' },
+        { value: 2.0, type: 'multiply', label: 'Critical Delay' },
         { value: 2.0, type: 'multiply', label: 'Deadly Sequence' },
         { value: 3.0, type: 'multiply', label: 'Exposing Harpoon' },
+        { value: 3.2, type: 'multiply', label: 'Galvanized Scope' },
+        { value: 1.5, type: 'multiply', label: 'Point Strike' },
+        { value: 3.5, type: 'multiply', label: 'Primary Acuity' },
+        { value: 1.2, type: 'multiply', label: 'Proton Jet' },
+    
       ],
       
       [
@@ -108,39 +122,45 @@
         { value: -3, type: 'multiply', label: 'Motus Setup' }
       ],
       [
+        { value: 2.0, type: 'multiply', label: 'Creeping Bullseye' },
+        { value: 4.0, type: 'multiply', label: 'Deadly Maneuvers' },
+        { value: 3.2, type: 'multiply', label: 'Galvanized Crosshairs' },
+        { value: 1.35, type: 'multiply', label: 'Hydraulic Crosshairs' },
         { value: 3.5, type: 'multiply', label: 'Pistol Acuity' },
         { value: 1.2, type: 'multiply', label: 'Pistol Gambit' },
         { value: 1.87, type: 'multiply', label: 'Primed Pistol Gambit' },
-        { value: 2.0, type: 'multiply', label: 'Creeping Bullseye' },
-        { value: 1.35, type: 'multiply', label: 'Hydraulic Crosshairs' },
-        { value: 3.2, type: 'multiply', label: 'Galvanized Crosshairs' },
-        { value: 4.0, type: 'multiply', label: 'Deadly Maneuvers' },
+
+
+
       ]
     ];
-
+    
     const globalModifiers = [
-        { value: 0.5, type: 'multiply', label: 'Cathode Grace' },
+        { type: 'break' },
+        { value: 0.005, type: 'scalable-multiply', label: 'Cathode Grace', max: 1000 },
+        { value: 0.005, type: 'scalable-multiply', label: 'Shadow Haze', max: 1000 },
         { value: 2.0, type: 'multiply', label: 'Biting Frost' },
         { value: 0.5, type: 'multiply', label: 'Concentrated Arrow' },
         { value: 1.5, type: 'multiply', label: 'Smoke Shadow' },
         { value: 1.2, type: 'multiply', label: 'Teeming Virulence' },
         { value: 0.75, type: 'multiply', label: 'Worthy Comradery' },
-        { value: 3.0, type: 'multiply', label: 'Cyte-09 Passive' },
-        { value: 0.4, type: 'multiply', label: 'Nyx Passive' },
-        { value: 2.0, type: 'multiply', label: 'Nyx Passive [Max]' },
+
         { value: 3.0, type: 'multiply', label: 'Arcane Hotshot' },
         { value: 3.0, type: 'multiply', label: 'Cascadia Accuracy' },
         { value: 3.0, type: 'multiply', label: 'Cascadia Overcharge' },
-
+        { value: 45, type: 'add', label: 'Arcane Avenger' },
+    
         { value: 60, type: 'add', label: 'Cats Eye' },
         { value: 50, type: 'add', label: 'Ballistic Bullseye' },
-        { value: 50, type: 'add', label: 'Shadow Haze' },
-        { value: 45, type: 'add', label: 'Arcane Avenger' },
+
+
         { value: 50, type: 'add', label: 'Covenant Bodyshot' },
         { value: 200, type: 'add', label: 'Covenant Headshot' },
-        { value: 5, type: 'add', label: 'Puncture' },
-        { value: 25, type: 'add', label: 'Puncture [Max Stacks]' },
+        { value: 5, type: 'scalable-add', label: 'Puncture Stacks', max: 5 },
 
+        { value: 3.0, type: 'multiply', label: 'Cyte-09 Passive' },
+        { value: 0.4, type: 'scalable-multiply', label: 'Nyx Passive', max: 5 },
+    
     ];
 
     const sectionLabels = [
@@ -148,6 +168,12 @@
       'Shotgun Mods',
       'Secondary Mods'
     ];
+
+    function clamp(value, min, max) {
+      if (min !== undefined) value = Math.max(value, min);
+      if (max !== undefined) value = Math.min(value, max);
+      return value;
+    }
 
     function calculateOutput(inputId, outputId, localModifiers, globalModifiers) {
       const inputEl = document.getElementById(inputId);
@@ -157,23 +183,28 @@
       let addSum = 0;
       let multSum = 0;
 
-      // Local modifiers
-      localModifiers.forEach((mod, i) => {
-        const checkbox = document.getElementById(`${inputId}-mod-${i}`);
-        if (checkbox && checkbox.checked) {
-          if (mod.type === 'add') addSum += mod.value;
-          else if (mod.type === 'multiply') multSum += mod.value;
-        }
-      });
+      const processModifiers = (modifiers, idPrefix) => {
+        modifiers.forEach((mod, i) => {
+          if (mod.type === 'break') return;
+          const checkbox = document.getElementById(`${idPrefix}-mod-${i}`);
+          if (checkbox && checkbox.checked) {
+            let effectiveValue = mod.value;
 
-      // Global modifiers
-      globalModifiers.forEach((mod, i) => {
-        const checkbox = document.getElementById(`global-mod-${i}`);
-        if (checkbox && checkbox.checked) {
-          if (mod.type === 'add') addSum += mod.value;
-          else if (mod.type === 'multiply') multSum += mod.value;
-        }
-      });
+            if (mod.type === 'scalable-add' || mod.type === 'scalable-multiply') {
+              const input = document.getElementById(`${idPrefix}-input-${i}`);
+              const inputVal = parseFloat(input.value) || 0;
+              effectiveValue *= inputVal;
+              effectiveValue = clamp(effectiveValue, mod.min, mod.max);
+            }
+
+            if (mod.type.endsWith('add')) addSum += effectiveValue;
+            else if (mod.type.endsWith('multiply')) multSum += effectiveValue;
+          }
+        });
+      };
+
+      processModifiers(localModifiers, inputId);
+      processModifiers(globalModifiers, 'global');
 
       const total = base * (1 + multSum) + addSum;
       outputEl.value = total.toFixed(2);
@@ -221,7 +252,15 @@
       checkboxGroup.className = 'checkbox-group';
 
       modifiers.forEach((mod, i) => {
+        if (mod.type === 'break') {
+          const spacer = document.createElement('div');
+          spacer.style.height = '10px'; // or any height you prefer
+           checkboxGroup.appendChild(spacer);
+         return;
+        }
+
         const label = document.createElement('label');
+
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.id = `number-${index}-mod-${i}`;
@@ -229,7 +268,22 @@
           calculateOutput(`number-${index}`, `output-${index}`, modifiers, globalModifiers)
         );
         label.appendChild(checkbox);
-        label.append(` ${mod.label}`);
+
+        const span = document.createElement('span');
+        span.textContent = ` ${mod.label}`;
+        label.appendChild(span);
+
+        if (mod.type.startsWith('scalable')) {
+          const numberInput = document.createElement('input');
+          numberInput.type = 'number';
+          numberInput.value = 0;
+          numberInput.id = `number-${index}-input-${i}`;
+          numberInput.addEventListener('input', () =>
+            calculateOutput(`number-${index}`, `output-${index}`, modifiers, globalModifiers)
+          );
+          label.appendChild(numberInput);
+        }
+
         checkboxGroup.appendChild(label);
       });
 
@@ -245,18 +299,40 @@
       checkboxGroup.className = 'checkbox-group';
 
       modifiers.forEach((mod, i) => {
+        if (mod.type === 'break') {
+          checkboxGroup.appendChild(document.createElement('br'));
+          return;
+        }
+
         const label = document.createElement('label');
+
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.id = `global-mod-${i}`;
         checkbox.addEventListener('change', () => {
-          // Trigger all outputs to recalculate
           for (let j = 0; j < allModifiers.length; j++) {
             calculateOutput(`number-${j}`, `output-${j}`, allModifiers[j], globalModifiers);
           }
         });
         label.appendChild(checkbox);
-        label.append(` ${mod.label}`);
+
+        const span = document.createElement('span');
+        span.textContent = ` ${mod.label}`;
+        label.appendChild(span);
+
+        if (mod.type.startsWith('scalable')) {
+          const numberInput = document.createElement('input');
+          numberInput.type = 'number';
+          numberInput.value = 0;
+          numberInput.id = `global-input-${i}`;
+          numberInput.addEventListener('input', () => {
+            for (let j = 0; j < allModifiers.length; j++) {
+              calculateOutput(`number-${j}`, `output-${j}`, allModifiers[j], globalModifiers);
+            }
+          });
+          label.appendChild(numberInput);
+        }
+
         checkboxGroup.appendChild(label);
       });
 
